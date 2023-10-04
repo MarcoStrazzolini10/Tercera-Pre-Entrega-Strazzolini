@@ -1,0 +1,140 @@
+django-admin startproject biblioteca
+cd biblioteca
+python manage.py startapp libros
+# libros/models.py
+from django.db import models
+
+class Autor(models.Model):
+    nombre = models.CharField(max_length=100)
+    nacionalidad = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.nombre
+
+class Editorial(models.Model):
+    nombre = models.CharField(max_length=100)
+    direccion = models.CharField(max_length=200)
+
+    def __str__(self):
+        return self.nombre
+
+class Libro(models.Model):
+    titulo = models.CharField(max_length=200)
+    autor = models.ForeignKey(Autor, on_delete=models.CASCADE)
+    editorial = models.ForeignKey(Editorial, on_delete=models.CASCADE)
+    publicacion = models.DateField()
+    precio = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return self.titulo
+# libros/forms.py
+from django import forms
+from .models import Autor, Editorial, Libro
+
+class AutorForm(forms.ModelForm):
+    class Meta:
+        model = Autor
+        fields = '__all__'
+
+class EditorialForm(forms.ModelForm):
+    class Meta:
+        model = Editorial
+        fields = '__all__'
+
+class LibroForm(forms.ModelForm):
+    class Meta:
+        model = Libro
+        fields = '__all__'
+# libros/views.py
+from django.shortcuts import render, redirect
+from .models import Autor, Editorial, Libro
+from .forms import AutorForm, EditorialForm, LibroForm
+
+def insertar_datos(request):
+    if request.method == 'POST':
+        autor_form = AutorForm(request.POST)
+        editorial_form = EditorialForm(request.POST)
+        libro_form = LibroForm(request.POST)
+        if autor_form.is_valid() and editorial_form.is_valid() and libro_form.is_valid():
+            autor_form.save()
+            editorial_form.save()
+            libro_form.save()
+            return redirect('insertar_datos')  # Redirigir a la misma página después de guardar
+
+    else:
+        autor_form = AutorForm()
+        editorial_form = EditorialForm()
+        libro_form = LibroForm()
+
+    return render(request, 'libros/insertar_datos.html', {'autor_form': autor_form, 'editorial_form': editorial_form, 'libro_form': libro_form})
+
+def buscar(request):
+    if request.method == 'POST':
+        query = request.POST.get('query')
+        libros = Libro.objects.filter(titulo__icontains=query)
+        return render(request, 'libros/buscar_resultados.html', {'libros': libros})
+
+    return render(request, 'libros/buscar.html')
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Insertar Datos</title>
+</head>
+<body>
+    <h1>Insertar Datos</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ autor_form.as_p }}
+        {{ editorial_form.as_p }}
+        {{ libro_form.as_p }}
+        <button type="submit">Guardar</button>
+    </form>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Buscar Libros</title>
+</head>
+<body>
+    <h1>Buscar Libros</h1>
+    <form method="post">
+        {% csrf_token %}
+        <input type="text" name="query" placeholder="Buscar libros">
+        <button type="submit">Buscar</button>
+    </form>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Resultados de Búsqueda</title>
+</head>
+<body>
+    <h1>Resultados de Búsqueda</h1>
+    <ul>
+        {% for libro in libros %}
+            <li>{{ libro.titulo }} - {{ libro.autor.nombre }}</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
+# libros/urls.py
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('insertar-datos/', views.insertar_datos, name='insertar_datos'),
+    path('buscar/', views.buscar, name='buscar'),
+]
+# biblioteca/urls.py
+from django.contrib import admin
+from django.urls import include, path
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('libros/', include('libros.urls')),
+]
